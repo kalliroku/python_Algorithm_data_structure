@@ -112,7 +112,6 @@ class BinarySearchTree:
                 else:
                     point.right = node
                     break
-        node.parent = point
 
     def search(self, key):
         if self.root is not None:
