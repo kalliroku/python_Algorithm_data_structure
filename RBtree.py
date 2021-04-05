@@ -52,6 +52,17 @@ class RbNode(bstreetry.TreeNode):
         elif self.is_right_child():
             return self.parent.left
 
+    def is_leaf_tree(self):
+        if self is None:
+            return 0
+        return (self.left is None or (self.left.color == RED and self.left.is_leaf())) \
+               and (self.right is None or (self.right.color == RED and self.right.is_leaf()))
+
+    def is_double_black(self):
+        if self is None:
+            return 0
+        return self.color == BLACK and self.is_leaf() or (self.has_both_children() and self.right.color == BLACK and self.left.colr == BLACK)
+
     def color_promotion(self):
         # 두 자식 노드가(있고), 모두 빨강일 경우
         if self.has_both_children() and self.left.color == RED and self.right.color == RED:
@@ -62,8 +73,10 @@ class RbNode(bstreetry.TreeNode):
                 self.color = BLACK
 
     def color_demotion(self):
-        pass
-
+        if self.parent.is_root() or self.parent.color == RED and self.is_double_black() and self.sibling.is_double_black():
+            self.parent.color = BLACK
+            self.color = RED
+            self.sibling.color = RED
 
 
 # class TreeNode:
@@ -177,7 +190,7 @@ class RedBlackTree(bstreetry.BinarySearchTree):
                     grand_parent.color = RED
                     target_node.color = BLACK
                 self.root.color = BLACK
-                # 내려 가면서 족보 갱신
+                # 족보 갱신
                 grand_grand_parent = grand_parent
                 grand_parent = parent
                 parent = target_node
@@ -231,6 +244,131 @@ class RedBlackTree(bstreetry.BinarySearchTree):
                 pivot_node.left = grand_child
         return grand_child
 
+    # leaf_tree의 노드 값을 지우는 함수
+    def __del_leaf_tree_node(self, key, node, parent_node):
+        # tree의 루트에 노드가 없는 경우(?) 있어?
+        if node.key == key:
+            if node.is_leaf():
+                if node.key >= parent_node.key:
+                    parent_node.right = None
+                else:
+                    parent_node.left = None
+                self.count -= 1
+                return 1
+            # tree의 root에 노드가 있는 경우
+            if node.has_left_child:
+                child = node.left
+                child.right = node.right
+            else:
+                child = node.right
+                child.left = node.left
+            if node.is_left_child():
+                parent_node.left = node.left
+            else:
+                parent_node.right = node.right
+            child.color = BLACK
+            del node
+            self.count -= 1
+            return 1
+            # tree의 리프를 삭제 해야 하는 경우, 단말 노드를 삭제
+        if node.left is not None and node.left.key == key:
+            node.left = None
+            self.count -= 1
+            return 1
+        elif node.right is not None and node.right.key == key:
+            node.right = None
+            self.count -= 1
+            return 1
+        return 0
+
+    def __red_as_parent(self, grand_parent_node, parent_node, sibling_node):
+        if sibling_node is None or sibling_node.color == BLACK:
+            return 0
+        self.rotation(sibling_node.key, grand_parent_node)
+        sibling_node.color = BLACK
+        parent_node.color = RED
+        return 1
+
+    def __bind_node(self, parent_node):
+        parent_node.color = BLACK
+        parent_node.left.color = RED
+        parent_node.right.color = RED
+
+    def __borrow_key(self, node, sibling_node, parent_node, grand_parent_node):
+        if sibling_node.is_double_black():
+            return 0
+        if node.key >= sibling_node.key:
+            if sibling_node.left.color == RED:
+                sibling_red_child_node = sibling_node.left
+            else:
+                sibling_red_child_node = sibling_node.right
+        else:
+            if sibling_node.right.color == RED:
+                sibling_red_child_node = sibling_node.right
+            else:
+                sibling_red_child_node = sibling_node.left
+        if node.key >= sibling_node.key != sibling_node >= sibling_red_child_node.key:
+            self.rotation(sibling_red_child_node.key, parent_node)
+            self.rotation(sibling_red_child_node.key, grand_parent_node)
+        else:
+            self.rotation(sibling_red_child_node.key, grand_parent_node)
+            sibling_node.color = RED
+            sibling_red_child_node.color = BLACK
+        node.color = RED
+        parent_node.color = BLACK
+        self.root.color = BLACK
+        return 1
+
+    def __swap_key(self, node):
+        candidate_node = node.right
+        while candidate_node.left is not None:
+            candidate_node = candidate_node.left
+        node.key = candidate_node.key
+        return node.key
+    # 초록 초록~~ 초록 초록~~ 초록 초록 에러가 나와요~
+    def remove(self, key):
+        grand_parent_node = parent_node = node = self.root
+        sibling_node = None
+        while not node.is_leaf_tree():
+            if node.color == BLACK:
+                if(self.__red_as_parent(grand_parent_node, parent_node, sibling_node)):
+                    grand_parent_node = sibling_node
+                    if node.key >= parent_node.key:
+                        sibling_node = parent_node.left
+                    else:
+                        sibling_node = parent_node.right
+            if not node.is_root() and node.is_double_black():
+                if not self.__borrow_key(grand_parent_node, parent_node, node, sibling_node):
+                    self.__bind_node(parent_node)
+            if key == node.key:
+                value = self.__swap_key(node)
+                grand_parent_node = parent_node
+                parent_node = node
+            if value >= node.key:
+                sibling_node = node.left
+                node = node.right
+            else:
+                sibling_node = node.right
+                node = node.left
+        if node.color == BLACK:
+            if self.__red_as_parent(grand_parent_node, parent_node, sibling_node):
+                parent_node = sibling_node
+                if node.key >= parent_node.key:
+                    sibling_node = parent_node.left
+                else:
+                    sibling_node = parent_node.right
+        if not node.is_root() and node.is_double_black():
+            if not self.__borrow_key(grand_parent_node, parent_node, node, sibling_node):
+                self.__bind_node(parent_node)
+        if self.__del_leaf_tree_node(value, node, parent_node):
+            self.count -= 1
+            return 1
+        else:
+            return 0
+
+
+
+
     # # 초기 작성한 방법
     # def __right_rotation(self, node):
     #     p = node.parent
@@ -278,201 +416,201 @@ class RedBlackTree(bstreetry.BinarySearchTree):
     #     # 회전을 하면서 node와 node.parent의 위계가 교환 됨
     #     self.__left_rotation(p)
 
-class BinarySearchTree:
-    def __init__(self):
-        self.count = 0
-        self.root = None
-
-    def insert(self, key):
-
-        if not self.count:
-            self.root = TreeNode(key)
-        else:
-            node = TreeNode(key)
-            self.__insert(node)
-        self.count += 1
-
-    def __insert(self, node):
-        point = self.root
-        while True:
-            if node.key < point.key:
-                if point.has_left_child():
-                    point = point.left
-                else:
-                    point.left = node
-                    break
-            else:
-                if point.has_right_child():
-                    point = point.right
-                else:
-                    point.right = node
-                    break
-
-    def search(self, key):
-        if self.root is not None:
-            res = self.__search(key)
-            if res:
-                return res.val
-        else:
-            return 0
-
-    def __search(self, key):
-        res = self.root
-        while res:
-            if key == res.key:
-                return res
-            else:
-                if key < res.key:
-                    res = res.left
-                else:
-                    res = res.right
-        return res
-
-    def delete(self, key):
-        if self.count == 1 and key == self.root.key:
-            self.root = None
-            self.count = 0
-            return
-        else:
-            target_del_node = self.__search(key)
-            if target_del_node:
-                self.count -= 1
-                if target_del_node.is_leaf():
-                    a = target_del_node.parent.left
-                    b = target_del_node
-                    if a == b:
-                        target_del_node.parent.left = None
-                    else:
-                        target_del_node.parent.right = None
-                elif target_del_node.has_both_children():
-                    succ = target_del_node.get_succ()
-                    succ.move_child()
-                    succ.left = target_del_node.left
-                    succ.right = target_del_node.right
-                    if target_del_node.is_root():
-                        self.root = succ
-                    else:
-                        if target_del_node.is_left_child:
-                            target_del_node.parent.left = succ
-                        else:
-                            target_del_node.parent.right = succ
-                else:
-                    child = target_del_node.left if target_del_node.has_left_child() \
-                        else target_del_node.right
-                    target_del_node.left = None
-                    target_del_node.right = None
-                    if target_del_node.is_root():
-                        self.root = child
-                    else:
-                        a = target_del_node.parent.left
-                        b = target_del_node
-                        if a == b:
-                            target_del_node.parent.left = child
-                        else:
-                            target_del_node.parent.right = child
-                del target_del_node
-                return 1
-            else:
-                return 0
-
-    def display(self, key=None):
-        if self.count:
-            if not key:
-                self.root.display()
-            else:
-                self.search(key).display()
-
-    def find_max_node(self):
-        target_node = self.root
-        while target_node.right:
-            target_node = target_node.right
-        return target_node
-
-    def find_min_node(self):
-        target_node = self.root
-        while target_node.left:
-            target_node = target_node.left
-        return target_node
-
-    def del_m(self, x):
-        if self.count == 1:
-            self.root = None
-            self.count = 0
-            return
-        if self.count:
-            if x == -1:
-                target_del_node = self.find_min_node()
-            else:
-                target_del_node = self.find_max_node()
-            self.count -= 1
-            if target_del_node.is_leaf():
-                a = target_del_node.parent.left
-                b = target_del_node
-                if a == b:
-                    target_del_node.parent.left = None
-                else:
-                    target_del_node.parent.right = None
-            elif target_del_node.has_both_children():
-                succ = target_del_node.get_succ()
-                succ.move_child()
-                succ.left = target_del_node.left
-                succ.right = target_del_node.right
-                if target_del_node.is_root():
-                    self.root = succ
-                else:
-                    a = target_del_node.parent.left
-                    b = target_del_node
-                    if a == b:
-                        target_del_node.parent.left = succ
-                    else:
-                        target_del_node.parent.right = succ
-            else:
-                child = target_del_node.left if target_del_node.has_left_child() \
-                    else target_del_node.right
-                target_del_node.left = None
-                target_del_node.right = None
-                if target_del_node.is_root():
-                    self.root = child
-                else:
-                    a = target_del_node.parent.left
-                    b = target_del_node
-                    if a == b:
-                        target_del_node.parent.left = child
-                    else:
-                        target_del_node.parent.right = child
-            del target_del_node
-            return 1
-        else:
-            return 0
-
-    def show_result(self):
-        if self.count:
-            print(self.find_max_node().key, self.find_min_node().key)
-        else:
-            print("EMPTY")
-        # print("----------------------------------------")
-
-
-def main():
-    tree = BinarySearchTree()
-    a = [3, 1, 4, -1, 0, 3, 5]
-    for i in a:
-        tree.insert(i)
-    for _ in range(3):
-        tree.del_m(1)
-        tree.del_m(-1)
-    tree.show_result()
-    for j in a:
-        tree.insert(j)
-    for _ in range(8):
-        tree.del_m(-1)
-    tree.show_result()
-    for j in a:
-        tree.insert(j)
-    for _ in range(8):
-        tree.del_m(1)
-    tree.show_result()
-
-
-if __name__ == '__main__':
-    main()
+# class BinarySearchTree:
+#     def __init__(self):
+#         self.count = 0
+#         self.root = None
+#
+#     def insert(self, key):
+#
+#         if not self.count:
+#             self.root = TreeNode(key)
+#         else:
+#             node = TreeNode(key)
+#             self.__insert(node)
+#         self.count += 1
+#
+#     def __insert(self, node):
+#         point = self.root
+#         while True:
+#             if node.key < point.key:
+#                 if point.has_left_child():
+#                     point = point.left
+#                 else:
+#                     point.left = node
+#                     break
+#             else:
+#                 if point.has_right_child():
+#                     point = point.right
+#                 else:
+#                     point.right = node
+#                     break
+#
+#     def search(self, key):
+#         if self.root is not None:
+#             res = self.__search(key)
+#             if res:
+#                 return res.val
+#         else:
+#             return 0
+#
+#     def __search(self, key):
+#         res = self.root
+#         while res:
+#             if key == res.key:
+#                 return res
+#             else:
+#                 if key < res.key:
+#                     res = res.left
+#                 else:
+#                     res = res.right
+#         return res
+#
+#     def delete(self, key):
+#         if self.count == 1 and key == self.root.key:
+#             self.root = None
+#             self.count = 0
+#             return
+#         else:
+#             target_del_node = self.__search(key)
+#             if target_del_node:
+#                 self.count -= 1
+#                 if target_del_node.is_leaf():
+#                     a = target_del_node.parent.left
+#                     b = target_del_node
+#                     if a == b:
+#                         target_del_node.parent.left = None
+#                     else:
+#                         target_del_node.parent.right = None
+#                 elif target_del_node.has_both_children():
+#                     succ = target_del_node.get_succ()
+#                     succ.move_child()
+#                     succ.left = target_del_node.left
+#                     succ.right = target_del_node.right
+#                     if target_del_node.is_root():
+#                         self.root = succ
+#                     else:
+#                         if target_del_node.is_left_child:
+#                             target_del_node.parent.left = succ
+#                         else:
+#                             target_del_node.parent.right = succ
+#                 else:
+#                     child = target_del_node.left if target_del_node.has_left_child() \
+#                         else target_del_node.right
+#                     target_del_node.left = None
+#                     target_del_node.right = None
+#                     if target_del_node.is_root():
+#                         self.root = child
+#                     else:
+#                         a = target_del_node.parent.left
+#                         b = target_del_node
+#                         if a == b:
+#                             target_del_node.parent.left = child
+#                         else:
+#                             target_del_node.parent.right = child
+#                 del target_del_node
+#                 return 1
+#             else:
+#                 return 0
+#
+#     def display(self, key=None):
+#         if self.count:
+#             if not key:
+#                 self.root.display()
+#             else:
+#                 self.search(key).display()
+#
+#     def find_max_node(self):
+#         target_node = self.root
+#         while target_node.right:
+#             target_node = target_node.right
+#         return target_node
+#
+#     def find_min_node(self):
+#         target_node = self.root
+#         while target_node.left:
+#             target_node = target_node.left
+#         return target_node
+#
+#     def del_m(self, x):
+#         if self.count == 1:
+#             self.root = None
+#             self.count = 0
+#             return
+#         if self.count:
+#             if x == -1:
+#                 target_del_node = self.find_min_node()
+#             else:
+#                 target_del_node = self.find_max_node()
+#             self.count -= 1
+#             if target_del_node.is_leaf():
+#                 a = target_del_node.parent.left
+#                 b = target_del_node
+#                 if a == b:
+#                     target_del_node.parent.left = None
+#                 else:
+#                     target_del_node.parent.right = None
+#             elif target_del_node.has_both_children():
+#                 succ = target_del_node.get_succ()
+#                 succ.move_child()
+#                 succ.left = target_del_node.left
+#                 succ.right = target_del_node.right
+#                 if target_del_node.is_root():
+#                     self.root = succ
+#                 else:
+#                     a = target_del_node.parent.left
+#                     b = target_del_node
+#                     if a == b:
+#                         target_del_node.parent.left = succ
+#                     else:
+#                         target_del_node.parent.right = succ
+#             else:
+#                 child = target_del_node.left if target_del_node.has_left_child() \
+#                     else target_del_node.right
+#                 target_del_node.left = None
+#                 target_del_node.right = None
+#                 if target_del_node.is_root():
+#                     self.root = child
+#                 else:
+#                     a = target_del_node.parent.left
+#                     b = target_del_node
+#                     if a == b:
+#                         target_del_node.parent.left = child
+#                     else:
+#                         target_del_node.parent.right = child
+#             del target_del_node
+#             return 1
+#         else:
+#             return 0
+#
+#     def show_result(self):
+#         if self.count:
+#             print(self.find_max_node().key, self.find_min_node().key)
+#         else:
+#             print("EMPTY")
+#         # print("----------------------------------------")
+#
+#
+# def main():
+#     tree = BinarySearchTree()
+#     a = [3, 1, 4, -1, 0, 3, 5]
+#     for i in a:
+#         tree.insert(i)
+#     for _ in range(3):
+#         tree.del_m(1)
+#         tree.del_m(-1)
+#     tree.show_result()
+#     for j in a:
+#         tree.insert(j)
+#     for _ in range(8):
+#         tree.del_m(-1)
+#     tree.show_result()
+#     for j in a:
+#         tree.insert(j)
+#     for _ in range(8):
+#         tree.del_m(1)
+#     tree.show_result()
+#
+#
+# if __name__ == '__main__':
+#     main()
