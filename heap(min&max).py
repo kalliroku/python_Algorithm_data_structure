@@ -5,7 +5,7 @@ class Heap:
 
     def insert(self, value):
         return self._insert(value)
-    
+
     def _insert(self, value):
         if len(self.array) == 1:
             self.array.append(value)
@@ -20,26 +20,26 @@ class Heap:
                 node_idx = p_node_idx
                 p_node_idx = node_idx // 2
             return 1
-        
+
     def get_child_idx(self, node_idx):
         heap = self.array
         child_idx = None
         if node_idx * 2 < len(heap):
             child_idx = node_idx * 2
-            if child_idx <= len(heap) and heap[child_idx] > heap[child_idx+1]:
+            if child_idx + 1 < len(heap) and heap[child_idx] > heap[child_idx + 1]:
                 child_idx += 1
         return child_idx
-    
+
     def pop(self):
         return self._pop()
-    
+
     def _pop(self):
         heap = self.array
         if len(heap) == 1:
-            print('heap is empty')
+            print(0)
             return 0
         elif len(heap) == 2:
-            return heap.pop()
+            return print(heap.pop())
         else:
             ret = heap[1]
             heap[1] = heap.pop()
@@ -49,7 +49,7 @@ class Heap:
                 heap[node_idx], heap[child_idx] = heap[child_idx], heap[node_idx]
                 node_idx = child_idx
                 child_idx = self.get_child_idx(node_idx)
-            return ret
+            return print(ret)
 
 class MaxHeap(Heap):
     
