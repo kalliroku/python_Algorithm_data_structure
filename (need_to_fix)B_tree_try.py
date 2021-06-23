@@ -16,11 +16,8 @@ class BTreeNode:
         self.cnt_child = 0
 
 
-def delete_val_from_node(val, node):
-    pass
-
-
 root = None
+
 
 def search_node(node, val):
     if not node:
@@ -208,3 +205,156 @@ def balance_node(node, child_pos):
         else:
             merge_node(node, child_pos, child_pos - 1)
         return
+
+
+# 내부노드 기준으로 자식들을 erge해야 하는 케이스
+def merge_child_node(p_node, cur_node_pos):
+    merge_idx = p_node.child[cur_node_pos].cnt_key
+    val_p_node = p_node.key[cur_node_pos]
+    p_node.child[cur_node_pos].key[merge_idx] = p_node.key[cur_node_pos]
+    p_node.child[cur_node_pos].cnt_key += 1
+
+    # 합치려는 노드에 형제 노드 값을 가지고 옴
+    for i in range(p_node.child[cur_node_pos+1].cnt_key):
+        p_node.child[cur_node_pos].key[merge_idx+1+i] = p_node.child[cur_node_pos+1].key[i]
+        p_node.child[cur_node_pos].cnt_key += 1
+
+    # 형제노드 자식도 들고와야 함
+    for i in range(p_node.child[cur_node_pos+1].cnt_child):
+        p_node.child[cur_node_pos].child[merge_idx+1+i] = p_node.child[cur_node_pos+1].child[i]
+        p_node.child[cur_node_pos].cnt_child += 1
+
+    # 부모노드(내부노드)의 키를 줬으니까 재배열 & 자식도 재배열
+    for i in range(cur_node_pos, p_node.cnt_key):
+        p_node.key[i] = p_node.key[i+1]
+        p_node.cnt_key -= 1
+    for i in range(cur_node_pos+1, p_node.cnt_child):
+        p_node.child[i] = p_node.child[i+1]
+        p_node.cnt_child -= 1
+    return val_p_node
+
+
+# predecessor 찾는 함수
+def find_predecessor(cur_node):
+    if cur_node.leaf:
+        return cur_node.key[cur_node.cnt_key-1]
+    find_predecessor(cur_node.child[cur_node.cnt_child - 1])
+
+
+# predecessor 찾아서 내부노드에 덮어 씌우는 함수
+def override_with_predecessor(p_node: BTreeNode, pos_std_search: int):
+    predecessor = find_predecessor(p_node.child[pos_std_search])
+    predecessor.key[pos_std_search] =predecessor
+    return predecessor
+
+
+# successor 찾는 함수
+def find_successor(cur_node):
+    if cur_node.leaf:
+        return cur_node.key[0]
+    return find_successor(cur_node.child[0])
+
+
+# successor를 찾아 내부 노드에 덮어 씌우는 함수
+def override_with_successor(p_node, pos_std_search):
+    successor = find_successor(p_node.child[pos_std_search + 1])
+    p_node.key[pos_std_search] = successor
+    return successor
+
+
+# 내부 노드에서 값을 지우는 함수
+def delete_inner_node(cur_node: BTreeNode, cur_node_pos: int) -> None:
+    if cur_node.child[cur_node_pos].cnt_key >= cur_node.child[cur_node_pos+1].cnt_key:
+        if cur_node.child[cur_node_pos].cnt_key > min_keys:
+            cessor = override_with_predecessor(cur_node, cur_node_pos)
+            delete_val_from_node(cessor, cur_node.child[cur_node_pos])
+        else:
+            deletion_for_merge = merge_child_node(cur_node, cur_node_pos)
+            delete_val_from_node(deletion_for_merge, cur_node.child[cur_node_pos])
+    else:
+        if cur_node.child[cur_node_pos+1].cnt_key > min_keys:
+            cessor = override_with_successor(cur_node, cur_node_pos)
+            delete_val_from_node(cessor, cur_node.child[cur_node_pos + 1])
+        else:
+            deletion_for_merge = merge_child_node(cur_node, cur_node_pos)
+            delete_val_from_node(deletion_for_merge, cur_node.child[cur_node_pos])
+
+
+# 노드랑 지우는 값을 넣어주면 지우는 함수
+def delete_val_from_node(val: int, node: BTreeNode):
+    flag = False
+    pos = 0
+    while pos < node.cnt_key:
+        if node.key[pos] == val:
+            flag = True
+            break
+        elif node.key[pos] > val:
+            break
+        pos += 1
+    if flag:
+        if node.leaf:
+            for i in range(pos, node.cnt_key):
+                node.key[i] = node.key[i+1]
+            node.cnt_key -= 1
+        else:
+            delete_inner_node(node, pos)
+        return flag
+    else:
+        if node.leaf:
+            return flag
+        else:
+            flag = delete_val_from_node(val, node.child[pos])
+    if node.child[pos].cnt_key < min_keys:
+        balance_node(node, pos)
+    return flag
+
+
+def delete(node: BTreeNode, val: int):
+    global root
+    if not node:
+        print("Empty tree")
+        return
+    flag = delete_val_from_node(val, node)
+    if not flag:
+        print("%d does not exist in this tree" % val)
+        return
+    if not node.cnt_key:
+        node = node.child[0]
+    root = node
+
+
+def print_tree(node, level):
+    if not node:
+        print("Empty tree!")
+        return
+    print("Level %d :   " % level, end="")
+    for i in range(level-1):
+        print("\t\t", end="")
+    for i in range(node.cnt_key):
+        print("%d " % node.key[i], end="")
+    print()
+    level += 1
+    for i in range(node.cnt_child):
+        print(node.child[i], level)
+
+
+def main():
+    insert(10)
+    insert(20)
+    insert(30)
+    insert(40)
+    insert(50)
+    insert(60)
+    insert(70)
+    print_tree(root, 1)
+    print("*"*20)
+    delete(root, 103)
+    delete(root, 70)
+    delete(root, 130)
+    print_tree(root, 1)
+    search_node(root, 30)
+    return 0
+
+
+if __name__ == "__main__":
+    main()
