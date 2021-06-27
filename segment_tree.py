@@ -1,57 +1,45 @@
-# 세그먼트 트리
+import sys
 import math
 
 
 class SegmentTree:
-    def __init__(self, array):
-        self.array = [0] + array
-        self.len_array = len(self.array) - 1
-        self.tree = [0] * pow(2, math.ceil(math.log2(self.len_array))+1)
-        self.make_tree(1, 1, self.len_array)
+    def __init__(self, array: list):
+        self.list = array
+        self.len_li = len(self.list)
+        self.tree = [None] * pow(2, math.ceil(math.log2(self.len_li))+1)
+        self.len_tree = len(self.tree)-1
+        self.list = [None] + self.list
+        self.__make_tree(1, 1, self.len_li)
 
-    def make_tree(self, node, start, end):
+    def __make_tree(self, position, start, end):
         if start == end:
-            self.tree[node] = self.array[start]
+            self.tree[position] = self.list[start]
         else:
-            self.tree[node] = self.make_tree(node*2, start, (start+end)//2) + self.make_tree(node*2+1, (start+end)//2+1, end)
-        return self.tree[node]
+            left_tree_sum = self.__make_tree(position*2, start, (start+end)//2)
+            right_tree_sum = self.__make_tree(position*2+1, (start+end)//2+1, end)
+            self.tree[position] = left_tree_sum + right_tree_sum
+        return self.tree[position]
 
-    def __sum(self, node, start, end, left, right):
-        if left > end or right < start:
-            return 0
-        elif left <= start and end <= right:
-            return self.tree[node]
-        else:
-            left_sum = self.__sum(node*2, start, (start+end)//2, left, right)
-            right_sum = self.__sum(node*2+1, (start+end)//2+1, end, left, right)
-            return left_sum + right_sum
-
-    def __update(self, node, start, end, index, diff):
-        if index < start or index > end: return 0
-        self.tree[node] += diff
+    def __update(self, position, index, start, end, diff):
+        if index < start or end < index:
+            return
+        self.tree[position] += diff
         if start != end:
-            self.__update(node*2, start, (start+end)//2, index, diff)
-            self.__update(node*2+1, (start+end)//2+1, end, index, diff)
-
-    def find_sum(self, left, right):
-        return self.__sum(1, 1, self.len_array, left+1, right+1)
+            self.__update(position*2, index, start, (start+end)//2, diff)
+            self.__update(position*2+1, index, (start+end)//2+1, end, diff)
 
     def update(self, index, value):
-        try:
-            index += 1
-            old_value = self.array[index]
-            different = value - old_value
-            self.array[index] = value
-            self.__update(1, 1, self.len_array, index, different)
-            return 1
-        except KeyError as e:
-            print(e)
+        self.__update(1, index, 1, self.len_li, value - self.list[index])
+        self.list[index] = value
+
+    def __sum(self, left, right, start, end, position=1):
+        if start > right or end < left:
             return 0
+        if left <= start and end <= right:
+            return self.tree[position]
+        left_sum = self.__sum(left, right, start, (start+end)//2, position*2)
+        right_sum = self.__sum(left, right, (start+end)//2+1, end, position*2+1)
+        return left_sum + right_sum
 
-
-# import random
-#
-# seg_nums = set()
-# while len(seg_nums) != 100:
-#     seg_nums.add(random.randint(0, 999))
-# print(seg_nums)
+    def range_sum(self, left, right):
+        return self.__sum(left, right, 1, self.len_li)
